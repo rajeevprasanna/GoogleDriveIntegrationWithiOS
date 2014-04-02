@@ -7,15 +7,25 @@
 //
 
 #import "GoogleDriveTableViewController.h"
+#import "GTLDrive.h"
+#import "GTMOAuth2ViewControllerTouch.h"
 
 
 static NSString *const scopes = @"https://www.googleapis.com/auth/drive.file";
-static NSString *const keychainItemName = @"googleDrive";
-static NSString *const clientID = @"4516271788433-npfpoi6el7noilv874ammjfupaaqljqc.apps.googleusercontent.com";
-static NSString *const clientSecret = @"cyCOifH7LyIHrZHPAWwkqQxl2";
+static NSString *const keychainItemName = @"gDrive";
+static NSString *const clientId = @"516271788433-npfpoi6el7noilv874asmmjfupaaqljqc.apps.googleusercontent.com";
+static NSString *const clientSecret = @"yCOifH7LyIHrZHPAWwksqQxl2";
 
 
 @interface GoogleDriveTableViewController ()
+
+@property (weak, readonly) GTLServiceDrive *driveService;
+@property (retain) NSMutableArray *driveFiles;
+@property BOOL isAuthorized;
+
+- (void)viewController:(GTMOAuth2ViewControllerTouch *)viewController finishedWithAuth:(GTMOAuth2Authentication *)auth error:(NSError *)error;
+- (void)isAuthorizedWithAuthentication:(GTMOAuth2Authentication *)auth;
+- (void)loadDriveFiles;
 
 @end
 
@@ -34,17 +44,57 @@ static NSString *const clientSecret = @"cyCOifH7LyIHrZHPAWwkqQxl2";
 {
     [super viewDidLoad];
     
-    // Uncomment the following line to preserve selection between presentations.
-    // self.clearsSelectionOnViewWillAppear = NO;
+    GTMOAuth2Authentication *auth =
+    [GTMOAuth2ViewControllerTouch authForGoogleFromKeychainForName:keychainItemName clientID:clientId clientSecret:clientSecret];
     
-    // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
-    // self.navigationItem.rightBarButtonItem = self.editButtonItem;
+     if ([auth canAuthorize]) {
+        [self isAuthorizedWithAuthentication:auth];
+     }else{
+         [self authorizeUser];
+     }
+}
+
+- (void)authorizeUser {
+    
+    if (!self.isAuthorized) {
+        // Sign in.
+        SEL finishedSelector = @selector(viewController:finishedWithAuth:error:);
+        // Applications that only need to access files created by this app should use kGTLAuthScopeDriveFile.
+        
+        GTMOAuth2ViewControllerTouch *authViewController =
+        [[GTMOAuth2ViewControllerTouch alloc] initWithScope:kGTLAuthScopeDrive
+                                                   clientID:clientId
+                                               clientSecret:clientSecret
+                                           keychainItemName:keychainItemName
+                                                   delegate:self
+                                           finishedSelector:finishedSelector];
+        [self presentModalViewController:authViewController
+                                animated:YES];
+    }
+}
+
+- (void)viewController:(GTMOAuth2ViewControllerTouch *)viewController
+      finishedWithAuth:(GTMOAuth2Authentication *)auth
+                 error:(NSError *)error {
+    [self dismissModalViewControllerAnimated:YES];
+    if (error == nil) {
+        [self isAuthorizedWithAuthentication:auth];
+    }
+}
+
+- (void)isAuthorizedWithAuthentication:(GTMOAuth2Authentication *)auth {
+    [[self driveService] setAuthorizer:auth];
+    self.isAuthorized = YES;
+    [self loadDriveFiles];
+}
+
+- (void)loadDriveFiles {
+    NSLog(@"Going to load files from Google drive.....");
 }
 
 - (void)didReceiveMemoryWarning
 {
     [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
 }
 
 #pragma mark - Table view data source
@@ -69,55 +119,5 @@ static NSString *const clientSecret = @"cyCOifH7LyIHrZHPAWwkqQxl2";
     label.text = [NSString stringWithFormat:@"%i", indexPath.row];
     return cell;
 }
-
-
-/*
-// Override to support conditional editing of the table view.
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    // Return NO if you do not want the specified item to be editable.
-    return YES;
-}
-*/
-
-/*
-// Override to support editing the table view.
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    if (editingStyle == UITableViewCellEditingStyleDelete) {
-        // Delete the row from the data source
-        [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
-    } else if (editingStyle == UITableViewCellEditingStyleInsert) {
-        // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
-    }   
-}
-*/
-
-/*
-// Override to support rearranging the table view.
-- (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath
-{
-}
-*/
-
-/*
-// Override to support conditional rearranging of the table view.
-- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    // Return NO if you do not want the item to be re-orderable.
-    return YES;
-}
-*/
-
-/*
-#pragma mark - Navigation
-
-// In a storyboard-based application, you will often want to do a little preparation before navigation
-- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender
-{
-    // Get the new view controller using [segue destinationViewController].
-    // Pass the selected object to the new view controller.
-}
-*/
 
 @end
