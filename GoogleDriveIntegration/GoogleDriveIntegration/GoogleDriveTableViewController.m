@@ -9,6 +9,7 @@
 #import "GoogleDriveTableViewController.h"
 #import "GTLDrive.h"
 #import "GTMOAuth2ViewControllerTouch.h"
+#import "ViewController.h"
 
 
 static NSString *const scopes = @"https://www.googleapis.com/auth/drive.file";
@@ -26,7 +27,7 @@ static NSString *const clientSecret = @"yCOifH7LyIHrZHPAWwkqQxl2";
 
 - (void)viewController:(GTMOAuth2ViewControllerTouch *)viewController finishedWithAuth:(GTMOAuth2Authentication *)auth error:(NSError *)error;
 - (void)isAuthorizedWithAuthentication:(GTMOAuth2Authentication *)auth;
-- (void)loadDriveFiles;
+- (void)loadDriveFiles:(NSString *)parentId;
 
 @end
 
@@ -105,14 +106,29 @@ static NSString *const clientSecret = @"yCOifH7LyIHrZHPAWwkqQxl2";
 - (void)isAuthorizedWithAuthentication:(GTMOAuth2Authentication *)auth {
     [[self driveService] setAuthorizer:auth];
     self.isAuthorized = YES;
-    [self loadDriveFiles];
+    [self loadDriveFiles:@"root"];
 }
 
-- (void)loadDriveFiles {
+-(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    //section 0 refers to folder selection and section 1 refers to file selection
+    if(indexPath.section == 0){
+        //Display files inside that folder
+        GTLDriveFile * folder = [self.driveFolders objectAtIndex:indexPath.row];
+        [self loadDriveFiles:folder.identifier];
+    }else{
+        GTLDriveFile * file = [self.driveFiles objectAtIndex:indexPath.row];
+        [self.navigationController popViewControllerAnimated: YES];
+
+        ViewController* viewController = (ViewController*)self.navigationController.topViewController;
+        viewController.fileName.text = file.title;
+    }
+}
+
+- (void)loadDriveFiles:(NSString *)parentId {
     
     GTLQueryDrive *query = [GTLQueryDrive queryForFilesList];
-    query.q = @"'root' in parents and trashed=false and hidden=false";
-    
+    query.q = [NSString stringWithFormat:@"'%@' IN parents and trashed=false and hidden=false", parentId];
     
     UIAlertView *alert = [self showLoadingMessageWithTitle:@"Loading files" delegate:self];
     self.driveService.shouldFetchNextPages = YES;
