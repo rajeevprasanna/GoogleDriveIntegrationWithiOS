@@ -20,6 +20,7 @@ static NSString *const clientSecret = @"yCOifH7LyIHrZHPAWwkqQxl2";
 @interface GoogleDriveTableViewController ()
 
 @property (weak, readonly) GTLServiceDrive *driveService;
+@property (retain) NSMutableArray *driveFolders;
 @property (retain) NSMutableArray *driveFiles;
 @property BOOL isAuthorized;
 
@@ -32,6 +33,7 @@ static NSString *const clientSecret = @"yCOifH7LyIHrZHPAWwkqQxl2";
 @implementation GoogleDriveTableViewController
 
 @synthesize driveFiles = _driveFiles;
+@synthesize driveFolders = _driveFolders;
 @synthesize isAuthorized = _isAuthorized;
 
 - (id)initWithStyle:(UITableViewStyle)style
@@ -62,6 +64,10 @@ static NSString *const clientSecret = @"yCOifH7LyIHrZHPAWwkqQxl2";
     [super viewDidAppear:animated];
     // Sort Drive Files by modified date (descending order).
     [self.driveFiles sortUsingComparator:^NSComparisonResult(GTLDriveFile *lhs,
+                                                             GTLDriveFile *rhs) {
+        return [rhs.modifiedDate.date compare:lhs.modifiedDate.date];
+    }];
+    [self.driveFolders sortUsingComparator:^NSComparisonResult(GTLDriveFile *lhs,
                                                              GTLDriveFile *rhs) {
         return [rhs.modifiedDate.date compare:lhs.modifiedDate.date];
     }];
@@ -118,28 +124,27 @@ static NSString *const clientSecret = @"yCOifH7LyIHrZHPAWwkqQxl2";
         
         if (error == nil) {
             if (self.driveFiles == nil) {
-                NSLog(@"NS dirve files are null");
                 self.driveFiles = [[NSMutableArray alloc] init];
             }
             
-            //Refer here to donwload a file : https://developers.google.com/drive/v2/reference/files/get
-            GTLDriveFile *file =  [files objectAtIndexedSubscript:0];
-            NSLog(@"file Title => %@", file.title);
-            NSLog(@"file type => %@", file.mimeType);
-            
-            //if user is in root directly, don't display back button
-            //file id => ("GTLDriveParentReference 0x8e549f0: {id:\"0APagr-5pqYunUk9PVA\" kind:\"drive#parentReference\" isRoot:1}" )
-            
-            NSLog(@"file id => %@", file.parents);
-            NSLog(@"file download url => %@", file.downloadUrl);
+            if(self.driveFolders == nil){
+                self.driveFolders = [[NSMutableArray alloc] init];
+            }
             
             [self.driveFiles removeAllObjects];
-            [self.driveFiles addObjectsFromArray:files.items];
-            [self.tableView reloadData];
+            [self.driveFolders removeAllObjects];
+            for(GTLDriveFile* file in files){
+                if([file.mimeType  isEqual: @"application/vnd.google-apps.folder"]){
+                    [self.driveFolders addObject:file];
+                }else{
+                    [self.driveFiles addObject:file];
+                }
+             }
+             [self.tableView reloadData];
         } else {
             NSLog(@"An error occurred: %@", error);
-            [self showErrorMessageWithTitle:@"Unable to load files"
-                                               message:[error description]
+            [self showErrorMessageWithTitle:@"Unable to load files from Google Drive"
+                                                message:[error description]
                                               delegate:self];
         }
     }];
@@ -171,20 +176,29 @@ static NSString *const clientSecret = @"yCOifH7LyIHrZHPAWwkqQxl2";
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
-    return 1;
+    return 2;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-  return self.driveFiles.count;
+    if(section == 0){
+        return self.driveFolders.count;
+    }else{
+        return self.driveFiles.count;
+    }
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"Cell"];
     
-    GTLDriveFile *file = [self.driveFiles objectAtIndex:indexPath.row];
-    cell.textLabel.text = file.title;
+    if(indexPath.section == 0){//load folders
+        GTLDriveFile *file = [self.driveFolders objectAtIndex:indexPath.row];
+        cell.textLabel.text = file.title;
+    }else if(indexPath.section == 1){ //load files
+        GTLDriveFile *file = [self.driveFiles objectAtIndex:indexPath.row];
+        cell.textLabel.text = file.title;
+    }
     return cell;
 }
 
